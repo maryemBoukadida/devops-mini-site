@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         APP_NAME = "monapp"
-        TAG = "${env.BRANCH_NAME}"
+        TAG = "dev"     // car env.BRANCH_NAME est null dans ton job
     }
 
     stages {
@@ -18,7 +18,7 @@ pipeline {
         stage('Setup') {
             steps {
                 echo "Setup environment..."
-                sh 'docker --version'
+                bat 'docker --version'
             }
         }
 
@@ -26,10 +26,10 @@ pipeline {
             steps {
                 echo "Build project..."
 
-                sh '''
-                    mkdir -p build
-                    echo "Build completed at $(date)" > build/build.log
-                '''
+                bat """
+                    mkdir build
+                    echo Build completed at %DATE% %TIME% > build\\build.log
+                """
             }
         }
 
@@ -37,11 +37,11 @@ pipeline {
             steps {
                 echo "Building and running Docker container..."
 
-                sh '''
-                    docker rm -f monapp_test || true
-                    docker build -t ${APP_NAME}:${TAG} .
-                    docker run -d --name monapp_test -p 8080:8080 ${APP_NAME}:${TAG}
-                '''
+                bat """
+                    docker rm -f monapp_test || echo OK
+                    docker build -t %APP_NAME%:%TAG% .
+                    docker run -d --name monapp_test -p 8080:8080 %APP_NAME%:%TAG%
+                """
 
                 sleep 5
             }
@@ -51,10 +51,9 @@ pipeline {
             steps {
                 echo "Running smoke tests..."
 
-                sh '''
-                    chmod +x scripts/smoke-test.sh
-                    ./scripts/smoke-test.sh
-                '''
+                bat """
+                    scripts\\smoke-test.bat
+                """
             }
         }
 
@@ -62,11 +61,11 @@ pipeline {
             steps {
                 echo "Archiving artifacts..."
 
-                sh '''
-                    mkdir -p release_${TAG}
-                    cp -r build release_${TAG}/
-                    cp smoke_result.txt release_${TAG}/
-                '''
+                bat """
+                    mkdir release_%TAG%
+                    xcopy build release_%TAG%\\build /E /I /Y
+                    copy smoke_result.txt release_%TAG%\\
+                """
 
                 archiveArtifacts artifacts: "release_${TAG}/**/*", fingerprint: true
             }
@@ -75,10 +74,11 @@ pipeline {
         stage('Cleanup') {
             steps {
                 echo "Cleaning up Docker..."
-                sh '''
-                    docker rm -f monapp_test || true
-                    docker rmi ${APP_NAME}:${TAG} || true
-                '''
+
+                bat """
+                    docker rm -f monapp_test || echo OK
+                    docker rmi %APP_NAME%:%TAG% || echo OK
+                """
             }
         }
     }
