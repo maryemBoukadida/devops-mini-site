@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         APP_NAME = "monapp"
-        TAG = "dev"     // car env.BRANCH_NAME est null dans ton job
+        TAG = "dev"  // comme env.BRANCH_NAME est null dans ton job
     }
 
     stages {
@@ -25,10 +25,9 @@ pipeline {
         stage('Build') {
             steps {
                 echo "Build project..."
-
                 bat """
-                    mkdir build
-                    echo Build completed at %DATE% %TIME% > build\\build.log
+                    if not exist build mkdir build
+                    echo Build completed at %DATE% %TIME% > build\\\\build.log
                 """
             }
         }
@@ -36,13 +35,12 @@ pipeline {
         stage('Docker Run') {
             steps {
                 echo "Building and running Docker container..."
-
                 bat """
-                    docker rm -f monapp_test || echo OK
+                    docker rm -f %APP_NAME%_test || echo OK
+                    docker rmi %APP_NAME%:%TAG% || echo OK
                     docker build -t %APP_NAME%:%TAG% .
-                    docker run -d --name monapp_test -p 8080:8080 %APP_NAME%:%TAG%
+                    docker run -d --name %APP_NAME%_test -p 8080:8080 %APP_NAME%:%TAG%
                 """
-
                 sleep 5
             }
         }
@@ -50,23 +48,18 @@ pipeline {
         stage('Smoke Test') {
             steps {
                 echo "Running smoke tests..."
-
-                bat """
-                    scripts\\smoke-test.bat
-                """
+                bat 'scripts\\\\smoke-test.bat'
             }
         }
 
         stage('Archive') {
             steps {
                 echo "Archiving artifacts..."
-
                 bat """
-                    mkdir release_%TAG%
-                    xcopy build release_%TAG%\\build /E /I /Y
-                    copy smoke_result.txt release_%TAG%\\
+                    if not exist release_%TAG% mkdir release_%TAG%
+                    xcopy build release_%TAG%\\\\build /E /I /Y
+                    if exist smoke_result.txt copy smoke_result.txt release_%TAG%\\\\
                 """
-
                 archiveArtifacts artifacts: "release_${TAG}/**/*", fingerprint: true
             }
         }
@@ -74,9 +67,8 @@ pipeline {
         stage('Cleanup') {
             steps {
                 echo "Cleaning up Docker..."
-
                 bat """
-                    docker rm -f monapp_test || echo OK
+                    docker rm -f %APP_NAME%_test || echo OK
                     docker rmi %APP_NAME%:%TAG% || echo OK
                 """
             }
@@ -84,6 +76,12 @@ pipeline {
     }
 
     post {
+        success {
+            echo "Pipeline PASSED!"
+        }
+        failure {
+            echo "Pipeline FAILED!"
+        }
         always {
             echo "Pipeline finished for branch ${TAG}"
         }
