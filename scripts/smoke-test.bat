@@ -1,19 +1,23 @@
 @echo off
-setlocal enabledelayedexpansion
+set RETRIES=10
+set SLEEP_TIME=5
+set PORT=8081
+set URL=http://localhost:%PORT%/
 
-set RETRY=0
-:CHECK
-curl -s http://localhost:8081 > nul
-if %ERRORLEVEL% EQU 0 (
-    echo PASSED
-    exit /b 0
-) else (
-    set /a RETRY+=1
-    if !RETRY! GEQ 10 (
-        echo FAILED
-        exit /b 1
+echo Starting smoke test for %URL%
+
+:RETRY
+for /L %%i in (1,1,%RETRIES%) do (
+    echo Attempt %%i of %RETRIES%...
+    powershell -Command "try {Invoke-WebRequest -Uri '%URL%' -UseBasicParsing; exit 0} catch {exit 1}"
+    if %ERRORLEVEL%==0 (
+        echo Smoke test PASSED!
+        exit /b 0
+    ) else (
+        echo Waiting %SLEEP_TIME% seconds before retry...
+        timeout /t %SLEEP_TIME% /nobreak > nul
     )
-    echo Waiting for container to be ready... Retry !RETRY!
-    timeout /t 3 > nul
-    goto CHECK
 )
+
+echo Smoke test FAILED!
+exit /b 1
