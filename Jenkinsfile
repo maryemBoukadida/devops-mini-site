@@ -39,7 +39,9 @@ pipeline {
                     docker rm -f %APP_NAME%_test || echo OK
                     docker rmi %APP_NAME%:%TAG% || echo OK
                     docker build -t %APP_NAME%:%TAG% .
-                    docker run -d --name %APP_NAME%_test -p 8080:8080 %APP_NAME%:%TAG%
+                    //docker run -d --name %APP_NAME%_test -p 8080:8080 %APP_NAME%:%TAG%
+                    docker run -d --name monapp_test -p 8081:8080 monapp:dev
+
                 """
                 sleep 5
             }
